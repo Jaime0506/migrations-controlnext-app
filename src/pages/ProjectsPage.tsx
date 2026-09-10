@@ -1,19 +1,18 @@
 import { useState } from "react";
 import ProjectsView from "@/components/projects/ProjectsView";
 import { AnimatedBackground } from "@/components/slide-presentation/AnimatedBackground";
-import { motion, AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProjectEditor from "@/components/project-editor/ProjectEditor";
 import { ProjectData } from "@/hooks/useProject";
-import { X, Home } from "lucide-react";
+import { X, Home, Database } from "lucide-react";
 
 export default function ProjectsPage() {
   const [openProjects, setOpenProjects] = useState<ProjectData[]>([]);
   const [activeTab, setActiveTab] = useState("home");
 
   const handleProjectClick = (project: ProjectData) => {
-    // Si el proyecto ya está abierto, solo activar su pestaña
-    if (!openProjects.find(p => p.id === project.id)) {
+    if (!openProjects.find((p) => p.id === project.id)) {
       setOpenProjects([...openProjects, project]);
     }
     setActiveTab(project.id?.toString() || "home");
@@ -21,57 +20,72 @@ export default function ProjectsPage() {
 
   const handleCloseProject = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    const newOpenProjects = openProjects.filter(p => p.id !== id);
+    const newOpenProjects = openProjects.filter((p) => p.id !== id);
     setOpenProjects(newOpenProjects);
 
-    // Si cerramos la pestaña activa, volver a inicio o a la anterior
     if (activeTab === id.toString()) {
       setActiveTab("home");
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 1.02 }}
-      transition={{ duration: 0.5, ease: "easeInOut" }}
-      className="relative flex w-full h-screen bg-ink-black-50 dark:bg-ink-black-950 justify-center items-center overflow-hidden"
-    >
+    <div className="relative flex w-full h-screen bg-surface-base text-foreground justify-center items-center overflow-hidden">
       <AnimatedBackground />
 
-      <div className="relative z-10 w-full h-full p-4 md:p-8 flex flex-col items-center">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col h-full overflow-hidden">
-          <div className="flex items-center justify-between w-full mb-6 px-10">
-            <TabsList className="bg-ink-black-900/40 border border-cerulean-500/20 backdrop-blur-md p-1.5 rounded-xl h-auto self-start overflow-hidden">
+      <div className="relative z-10 w-full h-full p-2.5 sm:p-4 md:p-5 flex flex-col overflow-hidden">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full flex-1 flex flex-col h-full overflow-hidden"
+        >
+          {/* Desktop Top Bar: Navigation & Tabs */}
+          <div className="flex items-center justify-between w-full mb-3 shrink-0 px-1">
+            <TabsList className="bg-surface-1/90 border border-surface-border backdrop-blur-md p-1 rounded-lg self-start inline-flex items-center gap-1.5 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {/* Pestaña Inicio */}
               <TabsTrigger
                 value="home"
-                className="gap-2.5 px-6 py-4 data-[state=active]:bg-cerulean-500/20 data-[state=active]:text-white text-ink-black-300 font-bold uppercase tracking-[0.15em] text-[13px] rounded-lg transition-all cursor-pointer"
+                className="gap-2 px-3.5 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer inline-flex items-center"
               >
-                <Home className="size-5" />
-                Inicio
+                <Home className="size-3.5 shrink-0" />
+                <span className="leading-none">Inicio</span>
               </TabsTrigger>
 
+              {/* Pestañas de Proyectos Abiertos */}
               <AnimatePresence mode="popLayout">
                 {openProjects.map((project) => (
                   <motion.div
                     key={project.id}
-                    initial={{ opacity: 0, scale: 0.9, x: -10 }}
+                    initial={{ opacity: 0, scale: 0.95, x: -6 }}
                     animate={{ opacity: 1, scale: 1, x: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, x: 10 }}
-                    transition={{ duration: 0.2 }}
+                    exit={{ opacity: 0, scale: 0.95, x: 6 }}
+                    transition={{ duration: 0.15 }}
+                    className="inline-flex items-center"
                   >
                     <TabsTrigger
                       value={project.id?.toString() || ""}
-                      className="group gap-2.5 px-6 py-4 data-[state=active]:bg-cerulean-500/20 data-[state=active]:text-white text-ink-black-300 font-bold uppercase tracking-[0.15em] text-[13px] rounded-lg transition-all relative pr-12 cursor-pointer"
+                      className="group gap-2 pl-3 pr-2 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer inline-flex items-center"
                     >
-                      <span className="truncate max-w-[150px]">{project.name}</span>
-                      <button
+                      <Database className="size-3.5 text-cerulean-400 shrink-0" />
+                      <span className="truncate max-w-[140px] font-mono leading-none">
+                        {project.name}
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
                         onClick={(e) => handleCloseProject(e, project.id!)}
-                        className="absolute right-3 p-1.5 rounded-full hover:bg-white/10 text-ink-black-400 hover:text-white transition-colors cursor-pointer"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            handleCloseProject(e as any, project.id!);
+                          }
+                        }}
+                        className="ml-1 p-0.5 rounded hover:bg-surface-base hover:text-rose-400 text-muted-foreground transition-colors cursor-pointer inline-flex items-center justify-center shrink-0"
+                        title="Cerrar pestaña"
+                        aria-label="Cerrar pestaña"
                       >
-                        <X className="size-4" />
-                      </button>
+                        <X className="size-3" />
+                      </span>
                     </TabsTrigger>
                   </motion.div>
                 ))}
@@ -79,8 +93,12 @@ export default function ProjectsPage() {
             </TabsList>
           </div>
 
-          <div className="flex-1 w-full px-10 overflow-hidden">
-            <TabsContent value="home" className="m-0 h-full w-full data-[state=active]:flex flex-col items-center justify-center data-[state=inactive]:hidden">
+          {/* Área de Contenido */}
+          <div className="flex-1 w-full overflow-hidden min-h-0">
+            <TabsContent
+              value="home"
+              className="m-0 h-full w-full data-[state=active]:flex flex-col items-center justify-center data-[state=inactive]:hidden overflow-hidden"
+            >
               <ProjectsView onProjectClick={handleProjectClick} />
             </TabsContent>
 
@@ -89,7 +107,7 @@ export default function ProjectsPage() {
                 key={project.id}
                 value={project.id?.toString() || ""}
                 forceMount
-                className="m-0 h-full w-full data-[state=active]:flex flex-col data-[state=inactive]:hidden"
+                className="m-0 h-full w-full data-[state=active]:flex flex-col data-[state=inactive]:hidden overflow-hidden"
               >
                 <ProjectEditor id={project.id!} project={project} />
               </TabsContent>
@@ -97,6 +115,6 @@ export default function ProjectsPage() {
           </div>
         </Tabs>
       </div>
-    </motion.div>
-  )
+    </div>
+  );
 }

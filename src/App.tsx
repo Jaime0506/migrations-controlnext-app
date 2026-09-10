@@ -1,6 +1,6 @@
 import AppRouter from "./router/AppRouter";
 import { Toaster } from "./components/ui/sonner";
-import DebugMenu from "./components/debug/DebugMenu";
+// import DebugMenu from "./components/debug/DebugMenu";
 import { useUpdateChecker } from "./hooks/useUpdateChecker";
 import { useKonamiCode } from "./hooks/useKonamiCode";
 import useStoreManagement from "./hooks/useStoreManagement";
@@ -23,9 +23,9 @@ function App() {
     const newState = !isDebugModeEnabledRef.current;
     methods.setIsDebugModeEnabledInStore(newState);
     toast.success(
-      newState ? "Modo Debug Activado >:)" : "Modo Debug Desactivado :(",
+      newState ? "Modo Debug Activado" : "Modo Debug Desactivado",
       {
-        description: "El sistema de depuración ha sido actualizado.",
+        description: "El sistema de diagnóstico y depuración ha sido actualizado.",
       }
     );
   };
@@ -35,7 +35,7 @@ function App() {
   return (
     <main className="flex w-full h-screen">
       <AppRouter />
-      <DebugMenu />
+      {/* <DebugMenu /> */}
       <Toaster />
     </main>
   );

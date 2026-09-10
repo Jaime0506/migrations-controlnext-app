@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
-use rusqlite::{Connection, params};
+use rusqlite::params;
 use serde_json::Value;
 
-use tauri::{AppHandle};
-use crate::db::get_db_path;
+use tauri::AppHandle;
+use crate::db::get_db_connection;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ExecutionResult {
@@ -16,11 +16,7 @@ pub async fn save_project(app: AppHandle, id: i64, connections: Vec<Value>, scri
     println!("Saving project with id: {}", id);
     println!("Connections: {:?}", connections);
 
-    let db_path = get_db_path(&app)?;
-    let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
-
-    // Asegurarnos de que la columna existe por si venimos de una versión anterior
-    let _ = conn.execute("ALTER TABLE projects ADD COLUMN scripts TEXT", []);
+    let conn = get_db_connection(&app)?;
 
     // Convertir el vector de connections a JSON string
     let connections_json = serde_json::to_string(&connections).map_err(|e| e.to_string())?;
@@ -52,13 +48,7 @@ pub struct ProjectDataResult {
 
 #[tauri::command]
 pub fn create_proyect(app: AppHandle, name: String, description: String, tags: Option<Vec<String>>) -> Result<(), String> {
-    let db_path = get_db_path(&app)?;
-    let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY, name TEXT, description TEXT, tags TEXT, connections TEXT, scripts TEXT)",
-        [],
-    ).map_err(|e| e.to_string())?;
+    let conn = get_db_connection(&app)?;
     
     // Convertir el vector de tags a JSON string
     let tags_json = match tags {
@@ -76,11 +66,7 @@ pub fn create_proyect(app: AppHandle, name: String, description: String, tags: O
 
 #[tauri::command]
 pub fn get_projects(app: AppHandle) -> Result<Vec<ProjectDataResult>, String> {
-    let db_path = get_db_path(&app)?;
-    let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
-
-    // Intentar agregar la columna por si es una bd antigua
-    let _ = conn.execute("ALTER TABLE projects ADD COLUMN scripts TEXT", []);
+    let conn = get_db_connection(&app)?;
 
     let mut stmt = conn.prepare("SELECT id, name, description, tags, connections, scripts FROM projects")
         .map_err(|e| e.to_string())?;

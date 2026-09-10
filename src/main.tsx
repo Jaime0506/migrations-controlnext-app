@@ -22,10 +22,14 @@ applySystemTheme();
 // Escuchar cambios en la preferencia del sistema
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applySystemTheme);
 
+import { ErrorBoundary } from "./components/ErrorBoundary";
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <HashRouter>
-      <App />
-    </HashRouter>
+    <ErrorBoundary>
+      <HashRouter>
+        <App />
+      </HashRouter>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

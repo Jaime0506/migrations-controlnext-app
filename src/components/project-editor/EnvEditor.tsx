@@ -1,153 +1,151 @@
+import { useState, useMemo } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
 import { Extension } from "@codemirror/state";
 import { syntaxHighlighting } from "@codemirror/language";
-import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { Database, RefreshCw } from "lucide-react";
 import { getUniqueConnections, DatabaseConnection } from "./envParser";
 import { envParser, getEnvHighlightStyle, getEnvTheme } from "./envEditorTheme";
 import { useThemeDetector } from "@/hooks/useThemeDetector";
-import { useState } from "react";
 import SearchPanel from "./SearchPanel";
 import { keymap } from "@codemirror/view";
 import { cinematicSearchField, cinematicSearchTheme } from "./cinematicSearchExtension";
 
 interface EnvEditorProps {
-    value: string;
-    onChange: (value: string) => void;
-    onConfirm?: (connections: DatabaseConnection[]) => void;
-    currentConnections?: DatabaseConnection[];
+  value: string;
+  onChange: (value: string) => void;
+  onConfirm?: (connections: DatabaseConnection[]) => void;
+  currentConnections?: DatabaseConnection[];
 }
 
 export default function EnvEditor({
-    value,
-    onChange,
-    onConfirm,
+  value,
+  onChange,
+  onConfirm,
+  currentConnections = [],
 }: EnvEditorProps) {
-    const isDark = useThemeDetector();
-    const [isSearchVisible, setIsSearchVisible] = useState(false);
-    const [editorView, setEditorView] = useState<EditorView | null>(null);
+  const isDark = useThemeDetector();
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
 
-    // Crear extensiones dinámicamente según el tema
-    const envExtensions: Extension[] = [
-        envParser,
-        syntaxHighlighting(getEnvHighlightStyle(isDark)),
-        getEnvTheme(isDark),
-        EditorView.lineWrapping,
-        cinematicSearchField,
-        cinematicSearchTheme,
-        keymap.of([
-            {
-                key: "Mod-f",
-                run: () => {
-                    setIsSearchVisible(true);
-                    return true;
-                },
-            },
-        ]),
-    ];
+  // Auto-detect connections count
+  const detected = useMemo(() => {
+    if (!value.trim()) return [];
+    try {
+      return getUniqueConnections(value);
+    } catch {
+      return [];
+    }
+  }, [value]);
 
-    // /**
-    //  * Limpia todas las comillas (simples y dobles, normales y Unicode) de un string
-    //  * Maneja casos con comillas anidadas o múltiples capas
-    //  */
-    // const cleanQuotes = (value: string | undefined): string | undefined => {
-    //     if (!value) return value;
-    //
-    //     let cleaned = value.trim();
-    //     let iterations = 0;
-    //     const maxIterations = 10; // Límite de seguridad
-    //
-    //     // Iterar hasta que no haya más cambios (elimina comillas anidadas)
-    //     while (iterations < maxIterations) {
-    //         const before = cleaned;
-    //
-    //         // Eliminar todas las variantes de comillas simples del inicio y final
-    //         // Incluye: ' (normal), ' (left single), ' (right single)
-    //         cleaned = cleaned.replace(/^['''']+/g, "").replace(/['''']+$/g, "");
-    //
-    //         // Eliminar todas las variantes de comillas dobles del inicio y final
-    //         // Incluye: " (normal), " (left double), " (right double)
-    //         cleaned = cleaned.replace(/^[""""]+/g, "").replace(/[""""]+$/g, "");
-    //
-    //         // Si no hubo cambios, salir
-    //         if (before === cleaned) {
-    //             break;
-    //         }
-    //
-    //         iterations++;
-    //     }
-    //
-    //     return cleaned.trim();
-    // };
+  const envExtensions: Extension[] = [
+    envParser,
+    syntaxHighlighting(getEnvHighlightStyle(isDark)),
+    getEnvTheme(isDark),
+    EditorView.lineWrapping,
+    cinematicSearchField,
+    cinematicSearchTheme,
+    keymap.of([
+      {
+        key: "Mod-f",
+        run: () => {
+          setIsSearchVisible(true);
+          return true;
+        },
+      },
+    ]),
+  ];
 
-    const handleConfirm = () => {
-        const connections = getUniqueConnections(value);
-        onConfirm?.(connections);
-    };
+  const handleConfirm = () => {
+    const connections = getUniqueConnections(value);
+    onConfirm?.(connections);
+  };
 
-    return (
-        <div className="absolute inset-0 flex flex-col">
-            {/* Editor */}
-            <div className="flex-1 min-h-0 relative">
-                <div className="absolute inset-0">
-                    <CodeMirror
-                        value={value}
-                        onChange={onChange}
-                        height="100%"
-                        style={{ height: "100%" }}
-                        onCreateEditor={(view) => setEditorView(view)}
-                        extensions={envExtensions}
-                        basicSetup={{
-                            lineNumbers: false,
-                            foldGutter: false,
-                            dropCursor: false,
-                            allowMultipleSelections: false,
-                            indentOnInput: false,
-                            bracketMatching: false,
-                            closeBrackets: false,
-                            autocompletion: false,
-                            highlightSelectionMatches: false,
-                            searchKeymap: false,
-                        }}
-                        placeholder="POSTGRES_TYPE_MY_CONNECTION = 'postgres'&#10;POSTGRES_HOST_MY_CONNECTION = 'localhost'&#10;POSTGRES_DB_MY_CONNECTION = 'database_name'&#10;POSTGRES_SCHEMA_MY_CONNECTION = 'public'&#10;POSTGRES_USER_MY_CONNECTION = 'username'&#10;POSTGRES_PASSWORD_MY_CONNECTION = 'password'&#10;POSTGRES_PORT_MY_CONNECTION = 5432&#10;&#10;POSTGRES_TYPE_ANOTHER_CONNECTION = 'postgres'&#10;POSTGRES_HOST_ANOTHER_CONNECTION = '192.168.1.100'&#10;POSTGRES_DB_ANOTHER_CONNECTION = 'another_db'&#10;POSTGRES_SCHEMA_ANOTHER_CONNECTION = 'schema_name'&#10;POSTGRES_USER_ANOTHER_CONNECTION = 'user2'&#10;POSTGRES_PASSWORD_ANOTHER_CONNECTION = 'pass2'&#10;POSTGRES_PORT_ANOTHER_CONNECTION = 5432"
-                    />
+  return (
+    <div className="absolute inset-0 flex flex-col bg-surface-1">
+      {/* Editor CodeMirror */}
+      <div className="flex-1 min-h-0 relative bg-surface-base">
+        <div className="absolute inset-0">
+          <CodeMirror
+            value={value}
+            onChange={onChange}
+            height="100%"
+            style={{ height: "100%" }}
+            onCreateEditor={(view) => setEditorView(view)}
+            extensions={envExtensions}
+            basicSetup={{
+              lineNumbers: true,
+              foldGutter: true,
+              dropCursor: false,
+              allowMultipleSelections: false,
+              indentOnInput: false,
+              bracketMatching: false,
+              closeBrackets: false,
+              autocompletion: false,
+              highlightSelectionMatches: false,
+              searchKeymap: false,
+            }}
+            placeholder="# Pega aquí las variables de entorno con formato de conexión:&#10;POSTGRES_TYPE_TENANT1 = 'postgres'&#10;POSTGRES_HOST_TENANT1 = 'localhost'&#10;POSTGRES_DB_TENANT1 = 'tenant1_db'&#10;POSTGRES_USER_TENANT1 = 'admin'&#10;POSTGRES_PASSWORD_TENANT1 = 'secret'&#10;POSTGRES_PORT_TENANT1 = 5432"
+          />
 
-                    {editorView && (
-                        <SearchPanel
-                            view={editorView}
-                            isVisible={isSearchVisible}
-                            onClose={() => setIsSearchVisible(false)}
-                        />
-                    )}
+          {editorView && (
+            <SearchPanel
+              view={editorView}
+              isVisible={isSearchVisible}
+              onClose={() => setIsSearchVisible(false)}
+            />
+          )}
 
-                    <style>{`
-                        .cm-editor,
-                        .cm-content {
-                            background-color: transparent !important;
-                        }
-                        .cm-scroller {
-                            background-color: transparent !important;
-                            overflow: auto !important;
-                        }
-                        .cm-editor .cm-content {
-                            color: var(--foreground) !important;
-                        }
-                    `}</style>
-                </div>
-            </div>
-
-            {/* Botón Confirmar */}
-            <div className="flex flex-row gap-2 p-3 border-t border-cerulean-500/10 bg-ink-black-900/60 backdrop-blur-md shrink-0">
-                <Button
-                    onClick={handleConfirm}
-                    className="flex-1 gap-2.5 bg-ink-black-900/40 backdrop-blur-md border border-cerulean-800/50 text-white hover:bg-ink-black-800 rounded-xl h-auto px-6 py-3 font-black uppercase tracking-widest text-xs transition-all cursor-pointer shadow-lg"
-                    disabled={!value.trim()}
-                >
-                    <Check className="size-4" />
-                    Confirmar
-                </Button>
-            </div>
+          <style>{`
+            .cm-editor {
+              height: 100% !important;
+              background-color: transparent !important;
+            }
+            .cm-scroller {
+              font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace !important;
+              font-size: 13px !important;
+              line-height: 1.6 !important;
+            }
+            .cm-gutters {
+              background-color: var(--color-surface-base) !important;
+              border-right: 1px solid rgba(8, 191, 247, 0.08) !important;
+              color: rgba(101, 182, 205, 0.4) !important;
+              padding-right: 8px !important;
+            }
+          `}</style>
         </div>
-    );
+      </div>
+
+      {/* Barra de acción inferior con resumen de tenants */}
+      <div className="flex items-center justify-between px-3.5 py-2.5 border-t border-surface-border bg-surface-2/40 backdrop-blur-md shrink-0">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Database className="size-3.5 text-cerulean-400" />
+          <span>
+            {detected.length > 0 ? (
+              <span className="text-foreground font-medium">
+                {detected.length} {detected.length === 1 ? "tenant detectado" : "tenants detectados"}
+              </span>
+            ) : (
+              <span>Sin tenants detectados</span>
+            )}
+          </span>
+          {currentConnections.length > 0 && (
+            <span className="text-[11px] text-muted-foreground">
+              ({currentConnections.length} activos)
+            </span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={!value.trim()}
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-surface-3 hover:bg-cerulean-500 hover:text-surface-base text-foreground border border-surface-border transition-all duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+        >
+          <RefreshCw className="size-3" />
+          <span>Sincronizar Tenants</span>
+        </button>
+      </div>
+    </div>
+  );
 }
