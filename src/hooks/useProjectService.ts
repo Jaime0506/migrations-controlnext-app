@@ -14,10 +14,14 @@ export const useProjectService = () => {
     const getProjects = async (
         callback?: (projects: ProjectData[]) => void
     ) => {
-        const projects = (await getProjectsService()) as ProjectData[];
-        console.log("projects", projects);
-
-        callback?.(projects);
+        try {
+            const projects = (await getProjectsService()) as ProjectData[];
+            console.log("projects cargados:", projects);
+            callback?.(projects || []);
+        } catch (error) {
+            console.error("Error al obtener proyectos:", error);
+            callback?.([]);
+        }
     };
 
     const saveProject = async (id: number, data: DatabaseConnection[], scripts?: string) => {

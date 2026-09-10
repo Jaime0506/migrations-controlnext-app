@@ -45,14 +45,11 @@ async fn execute_on_connection(
 ) -> Result<ExecutionResult, ExecutionResult> {
     let connection_id = conn.id.clone();
     
-    println!("[{}] Iniciando conexión...", connection_id);
-    
     // Construir connection string
     let connection_string = match build_connection_string(conn) {
         Ok(cs) => cs,
         Err(e) => {
             let error_msg = format!("Error construyendo connection string: {}", e);
-            println!("[{}] {}", connection_id, error_msg);
             return Err(ExecutionResult {
                 connection_id: connection_id.clone(),
                 success: false,
@@ -61,23 +58,23 @@ async fn execute_on_connection(
         }
     };
 
-    // Conectar a la base de datos con un timeout de 10 segundos
+    // Conectar a la base de datos con un timeout extendido de 20 segundos
+    // para evitar falsos negativos por congestión temporal de sockets o DNS
     let connect_future = tokio_postgres::connect(&connection_string, NoTls);
-    let (mut client, connection) = match tokio::time::timeout(std::time::Duration::from_secs(10), connect_future).await {
+    let (mut client, connection) = match tokio::time::timeout(std::time::Duration::from_secs(20), connect_future).await {
         Ok(Ok((c, conn))) => (c, conn),
         Ok(Err(e)) => {
-            // Obtener detalles más específicos del error de conexión
-            let error_msg = if e.to_string().contains("password authentication failed") {
-                format!("Error de autenticación: Usuario o contraseña incorrectos")
-            } else if e.to_string().contains("connection refused") {
-                format!("Error de conexión: No se pudo conectar al servidor. Verifica que el servidor esté corriendo y el puerto sea correcto")
-            } else if e.to_string().contains("does not exist") {
-                format!("Error: La base de datos no existe")
+            let error_str = e.to_string();
+            let error_msg = if error_str.contains("password authentication failed") {
+                "Error de autenticación: Usuario o contraseña incorrectos".to_string()
+            } else if error_str.contains("connection refused") {
+                "Error de conexión: Conexión rechazada por el servidor (verifica host y puerto)".to_string()
+            } else if error_str.contains("does not exist") {
+                "Error: La base de datos no existe".to_string()
             } else {
                 format!("Error conectando a la base de datos: {}", e)
             };
             
-            println!("[{}] {}", connection_id, error_msg);
             return Err(ExecutionResult {
                 connection_id: connection_id.clone(),
                 success: false,
@@ -85,9 +82,7 @@ async fn execute_on_connection(
             });
         }
         Err(_) => {
-            // Error de Timeout
-            let error_msg = format!("Error de conexión: Tiempo de espera agotado (Timeout > 10s)");
-            println!("[{}] {}", connection_id, error_msg);
+            let error_msg = "Error de conexión: Tiempo de espera agotado (Timeout > 20s)".to_string();
             return Err(ExecutionResult {
                 connection_id: connection_id.clone(),
                 success: false,
@@ -96,37 +91,29 @@ async fn execute_on_connection(
         }
     };
 
-    // Ejecutar la conexión en segundo plano
+    // Ejecutar la tarea de conexión en segundo plano
     tokio::spawn(async move {
         if let Err(e) = connection.await {
-            eprintln!("Error en la conexión: {}", e);
+            eprintln!("Error en el stream de conexión: {}", e);
         }
     });
-
-    println!("[{}] Conectado exitosamente", connection_id);
 
     // Establecer el schema si está especificado
     if let Some(schema) = &conn.schema {
         let set_schema_sql = format!("SET search_path TO {}", schema);
         if let Err(e) = client.execute(&set_schema_sql, &[]).await {
             let error_msg = format!("Error estableciendo schema '{}': {}", schema, e);
-            println!("[{}] {}", connection_id, error_msg);
             return Err(ExecutionResult {
                 connection_id: connection_id.clone(),
                 success: false,
                 message: error_msg,
             });
         }
-        println!("[{}] Schema establecido: {}", connection_id, schema);
     }
 
-    // Ejecutar el SQL
-    println!("[{}] Ejecutando SQL...", connection_id);
-    
     let sql_trimmed = sql.trim();
     let sql_upper = sql_trimmed.to_uppercase();
     
-    // Detectar tipos de statements que requieren batch_execute
     // DDL (Data Definition Language)
     let has_ddl = sql_upper.contains("CREATE ") 
         || sql_upper.contains("ALTER ") 
@@ -144,41 +131,23 @@ async fn execute_on_connection(
         || sql_upper.contains("CREATE PROCEDURE")
         || sql_upper.contains("CREATE OR REPLACE PROCEDURE");
     
-    // CREATE TABLE AS SELECT (DML complejo)
     let has_create_table_as = sql_upper.contains("CREATE TABLE") && sql_upper.contains("AS SELECT");
-    
-    // Múltiples statements (contar puntos y coma, pero ignorar los que están en strings)
-    // Nota: Esta es una aproximación simple. Para un análisis más preciso,
-    // se necesitaría un parser SQL completo.
     let semicolon_count = sql_trimmed.matches(';').count();
     let has_multiple_statements = semicolon_count > 1;
     
-    // Siempre usar batch_execute para:
-    // - DDL statements (CREATE, ALTER, DROP, etc.)
-    // - DCL statements (GRANT, REVOKE)
-    // - Funciones y procedimientos
-    // - CREATE TABLE AS SELECT
-    // - Múltiples statements
     let use_batch = has_ddl || has_dcl || has_functions || has_create_table_as || has_multiple_statements;
     
     if use_batch {
-        // Usar batch_execute para statements que no retornan filas o múltiples statements
         let statement_type = if has_ddl { "DDL" }
             else if has_dcl { "DCL" }
             else if has_functions { "FUNCTION/PROCEDURE" }
             else if has_create_table_as { "CREATE TABLE AS SELECT" }
             else { "MÚLTIPLES STATEMENTS" };
         
-        println!("[{}] Detectado: {}, usando batch_execute", connection_id, statement_type);
-        println!("[{}] SQL a ejecutar:\n{}", connection_id, sql);
-        
-        // Usar una transacción explícita para garantizar que todas las sentencias
-        // se ejecuten en orden y que si una falla, todas se reviertan
         let transaction = match client.transaction().await {
             Ok(txn) => txn,
             Err(e) => {
                 let error_msg = format!("Error iniciando transacción: {}", e);
-                println!("[{}] {}", connection_id, error_msg);
                 return Err(ExecutionResult {
                     connection_id: connection_id.clone(),
                     success: false,
@@ -187,30 +156,23 @@ async fn execute_on_connection(
             }
         };
         
-        // Establecer el search_path dentro de la transacción si hay un schema especificado
-        // Esto asegura que los tipos y objetos se creen y referencien correctamente
         if let Some(schema) = &conn.schema {
             let set_schema_sql = format!("SET search_path TO {}", schema);
             if let Err(e) = transaction.execute(&set_schema_sql, &[]).await {
                 let error_msg = format!("Error estableciendo schema '{}' en transacción: {}", schema, e);
-                println!("[{}] {}", connection_id, error_msg);
                 return Err(ExecutionResult {
                     connection_id: connection_id.clone(),
                     success: false,
                     message: error_msg,
                 });
             }
-            println!("[{}] Schema establecido en transacción: {}", connection_id, schema);
         }
         
-        // Ejecutar el SQL dentro de la transacción
         match transaction.batch_execute(sql).await {
             Ok(_) => {
-                // Commit de la transacción
                 match transaction.commit().await {
                     Ok(_) => {
                         let success_msg = format!("SQL ejecutado exitosamente ({})", statement_type);
-                        println!("[{}] {}", connection_id, success_msg);
                         Ok(ExecutionResult {
                             connection_id: connection_id.clone(),
                             success: true,
@@ -219,7 +181,6 @@ async fn execute_on_connection(
                     }
                     Err(e) => {
                         let error_msg = format!("Error haciendo commit: {}", e);
-                        println!("[{}] {}", connection_id, error_msg);
                         Err(ExecutionResult {
                             connection_id: connection_id.clone(),
                             success: false,
@@ -229,7 +190,6 @@ async fn execute_on_connection(
                 }
             }
             Err(e) => {
-                // Rollback automático al salir del scope, pero informamos el error
                 let error_msg = if let Some(db_error) = e.as_db_error() {
                     format!(
                         "Error de base de datos: {} (Código: {})",
@@ -240,7 +200,6 @@ async fn execute_on_connection(
                     format!("Error ejecutando SQL: {}", e)
                 };
                 
-                println!("[{}] {} (transacción revertida)", connection_id, error_msg);
                 Err(ExecutionResult {
                     connection_id: connection_id.clone(),
                     success: false,
@@ -249,12 +208,9 @@ async fn execute_on_connection(
             }
         }
     } else {
-        // Usar execute para DML simple (INSERT, UPDATE, DELETE) que retorna filas afectadas
-        // Nota: SELECT también funcionaría pero no retornaría los datos, solo el número de filas
         match client.execute(sql, &[]).await {
             Ok(rows_affected) => {
                 let success_msg = format!("SQL ejecutado exitosamente. Filas afectadas: {}", rows_affected);
-                println!("[{}] {}", connection_id, success_msg);
                 Ok(ExecutionResult {
                     connection_id: connection_id.clone(),
                     success: true,
@@ -262,7 +218,6 @@ async fn execute_on_connection(
                 })
             }
             Err(e) => {
-                // Obtener detalles más específicos del error
                 let error_msg = if let Some(db_error) = e.as_db_error() {
                     format!(
                         "Error de base de datos: {} (Código: {})",
@@ -273,7 +228,6 @@ async fn execute_on_connection(
                     format!("Error ejecutando SQL: {}", e)
                 };
                 
-                println!("[{}] {}", connection_id, error_msg);
                 Err(ExecutionResult {
                     connection_id: connection_id.clone(),
                     success: false,
@@ -290,34 +244,69 @@ pub async fn execute_sql(
     sql: String,
     connections: Vec<DatabaseConnection>,
 ) -> Result<Vec<ExecutionResult>, String> {
-    println!("=== Iniciando ejecución de SQL (Concurrente) ===");
-    println!("SQL: {}", sql);
-    println!("Número de conexiones: {}", connections.len());
-    println!();
+    let total_count = connections.len();
+    println!("=== Iniciando ejecución de SQL en {} conexiones ===", total_count);
 
-    let concurrency_limit = 50; // Limite seguro para evitar saturación
+    // Concurrencia óptima de 12 tareas en paralelo:
+    // Evita la saturación del stack de red de Windows (sockets TCP half-open, DNS throttling)
+    // y no colapsa los límites de conexión de PostgreSQL remoto.
+    let concurrency_limit = 12;
 
-    // Compartir el string SQL entre todas las tareas usando Arc
     let sql_arc = Arc::new(sql);
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<ExecutionResult>(concurrency_limit * 2);
 
-    // Convertir a stream, mapear a tareas asíncronas, y ejecutar concurrentemente
+    // Tarea de emisión de progreso por lotes hacia Tauri frontend:
+    // Agrupa resultados cada 120ms o al acumular 10 elementos,
+    // evitando saturar el puente IPC y los re-renderizados en React.
+    let app_clone = app.clone();
+    let progress_task = tokio::spawn(async move {
+        let mut batch = Vec::with_capacity(12);
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(120));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        loop {
+            tokio::select! {
+                res = rx.recv() => {
+                    match res {
+                        Some(item) => {
+                            batch.push(item);
+                            if batch.len() >= 10 {
+                                let to_send = std::mem::take(&mut batch);
+                                let _ = app_clone.emit("sql-execution-progress", &to_send);
+                            }
+                        }
+                        None => {
+                            // Canal cerrado al finalizar todos los workers
+                            if !batch.is_empty() {
+                                let _ = app_clone.emit("sql-execution-progress", &batch);
+                            }
+                            break;
+                        }
+                    }
+                }
+                _ = interval.tick() => {
+                    if !batch.is_empty() {
+                        let to_send = std::mem::take(&mut batch);
+                        let _ = app_clone.emit("sql-execution-progress", &to_send);
+                    }
+                }
+            }
+        }
+    });
+
+    // Convertir a stream asíncrono con control de concurrencia
     let results: Vec<ExecutionResult> = stream::iter(connections.into_iter())
         .map(|conn| {
             let sql_clone = Arc::clone(&sql_arc);
-            let app_clone = app.clone(); // Clonar el handle para usarlo dentro de la tarea
+            let tx_clone = tx.clone();
             async move {
-                // execute_on_connection espera referencias
                 let res = match execute_on_connection(&conn, &sql_clone).await {
                     Ok(result) => result,
                     Err(result) => result,
                 };
                 
-                // Emitir el evento al frontend indicando que esta conexión terminó
-                if let Err(e) = app_clone.emit("sql-execution-progress", &res) {
-                    eprintln!("Error al emitir el evento de progreso: {}", e);
-                }
-
-                println!(); // Línea en blanco para separar outputs (aunque puede estar intercalado en concurrencia)
+                // Enviar al canal de progreso en lotes
+                let _ = tx_clone.send(res.clone()).await;
                 res
             }
         })
@@ -325,15 +314,15 @@ pub async fn execute_sql(
         .collect()
         .await;
 
-    // Resumen
+    // Cerrar el transmisor original y esperar que la tarea de emisión termine
+    drop(tx);
+    let _ = progress_task.await;
+
     let successful = results.iter().filter(|r| r.success).count();
     let failed = results.len() - successful;
     
     println!("=== Resumen de ejecución ===");
-    println!("Total: {}", results.len());
-    println!("Exitosas: {}", successful);
-    println!("Fallidas: {}", failed);
-    println!();
+    println!("Total procesadas: {} | Exitosas: {} | Fallidas: {}", results.len(), successful, failed);
 
     Ok(results)
 }
