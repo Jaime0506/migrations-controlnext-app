@@ -1,89 +1,109 @@
-import { useState, useRef } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { useMemo } from "react";
+import { Database, ArrowRight, Layers } from "lucide-react";
 import { ProjectData } from "@/hooks/useProject";
 
 interface ProjectCardProps {
-    project: ProjectData;
-    onClick: (id: number) => void;
+  project: ProjectData;
+  onClick: (id: number) => void;
 }
 
 export default function ProjectCard({ project, onClick }: ProjectCardProps) {
-    const [isLongHover, setIsLongHover] = useState(false);
-    const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-    const handleMouseEnter = () => {
-        hoverTimerRef.current = setTimeout(() => {
-            setIsLongHover(true);
-        }, 100);
-    };
-
-    const handleMouseLeave = () => {
-        if (hoverTimerRef.current) {
-            clearTimeout(hoverTimerRef.current);
-            hoverTimerRef.current = null;
+  // Compute how many connections this project has
+  const connectionCount = useMemo(() => {
+    if (!project.connections) return 0;
+    try {
+      if (typeof project.connections === "string") {
+        if (project.connections.trim().startsWith("[")) {
+          const parsed = JSON.parse(project.connections);
+          return Array.isArray(parsed) ? parsed.length : 0;
         }
-        setIsLongHover(false);
-    };
+        // Count POSTGRES_DB occurrences or similar
+        const dbMatches = project.connections.match(/POSTGRES_DB/gi);
+        return dbMatches ? dbMatches.length : 0;
+      }
+      return 0;
+    } catch {
+      return 0;
+    }
+  }, [project.connections]);
 
-    return (
-        <div
-            className="group relative flex flex-col gap-4 p-5 rounded-xl border border-cerulean-500/20 bg-ink-black-950/60 backdrop-blur-md hover:border-cerulean-400/50 hover:shadow-[0_0_30px_rgba(8,191,247,0.15)] transition-all duration-300 cursor-pointer overflow-hidden shadow-lg"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            onClick={() => onClick(project.id ?? 0)}
-        >
-            {/* Borde superior animado que crece desde el centro */}
-            <AnimatePresence>
-                {isLongHover && (
-                    <motion.div
-                        className="absolute top-0 left-1/2 h-0.5 bg-linear-to-r from-cerulean-400 to-icy-aqua-400 rounded-t-lg z-20"
-                        initial={{ width: "0%", x: "-50%" }}
-                        animate={{ width: "100%", x: "-50%" }}
-                        exit={{ width: "0%", x: "-50%" }}
-                        transition={{
-                            duration: 0.2,
-                            ease: [0.4, 0, 0.2, 1],
-                        }}
-                    />
-                )}
-            </AnimatePresence>
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onClick(project.id ?? 0)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick(project.id ?? 0);
+        }
+      }}
+      className="group relative flex flex-col justify-between p-5 rounded-xl border border-surface-border bg-surface-1/80 hover:bg-surface-2/60 hover:border-cerulean-500/35 transition-all duration-200 cursor-pointer shadow-lg hover:shadow-[0_8px_30px_rgba(8,191,247,0.08)] select-none text-left"
+    >
+      {/* Indicador de acento superior tenue */}
+      <div className="absolute top-0 left-4 right-4 h-px bg-linear-to-r from-transparent via-cerulean-500/20 to-transparent group-hover:via-cerulean-400/50 transition-colors" />
 
-            {/* Header del proyecto */}
-            <div className="flex items-start justify-between gap-3 relative z-10">
-                <h3 className="text-xl font-black text-white line-clamp-2 flex-1 tracking-tight group-hover:text-cerulean-300 transition-colors">
-                    {project.name}
-                </h3>
-                {project.id && (
-                    <span className="text-xs text-cerulean-300 font-black tracking-widest uppercase bg-cerulean-400/10 px-2.5 py-1 rounded shrink-0 border border-cerulean-400/20 shadow-inner">
-                        ID: {project.id}
-                    </span>
-                )}
+      <div>
+        {/* Cabecera del Proyecto */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="size-9 rounded-lg bg-surface-2 border border-surface-border group-hover:border-cerulean-500/40 group-hover:bg-cerulean-500/10 flex items-center justify-center text-cerulean-400 transition-colors shrink-0">
+              <Database className="size-4.5" />
             </div>
 
-            {/* Descripción */}
-            {project.description && (
-                <p className="text-base text-ink-black-200 line-clamp-3 relative z-10 font-medium leading-relaxed">
-                    {project.description}
-                </p>
-            )}
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-foreground group-hover:text-cerulean-300 transition-colors truncate tracking-tight">
+                {project.name}
+              </h3>
+              {project.id && (
+                <span className="text-[10px] font-mono text-muted-foreground">
+                  ID #{project.id}
+                </span>
+              )}
+            </div>
+          </div>
 
-            {/* Tags */}
-            {project.tags && project.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-auto relative z-10 pt-2">
-                    {project.tags.map((tag, index) => (
-                        <span
-                            key={index}
-                            className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-ink-black-950/80 text-cerulean-300 border border-cerulean-800/30 uppercase tracking-widest"
-                        >
-                            {tag}
-                        </span>
-                    ))}
-                </div>
-            )}
-
-            {/* Subtle glow on hover */}
-            <div className="absolute inset-0 bg-linear-to-br from-cerulean-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+          <div className="opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all text-cerulean-400 shrink-0">
+            <ArrowRight className="size-4" />
+          </div>
         </div>
-    );
-}
 
+        {/* Descripción */}
+        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-4 min-h-10">
+          {project.description || "Sin descripción configurada para este proyecto."}
+        </p>
+      </div>
+
+      {/* Footer / Metadatos */}
+      <div className="pt-3 border-t border-surface-border/60 flex items-center justify-between gap-2 mt-auto">
+        <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground">
+          <Layers className="size-3 text-cerulean-400" />
+          <span>
+            {connectionCount > 0
+              ? `${connectionCount} ${connectionCount === 1 ? "tenant" : "tenants"}`
+              : "Sin tenants"}
+          </span>
+        </div>
+
+        {/* Tags */}
+        {project.tags && project.tags.length > 0 && (
+          <div className="flex items-center gap-1 overflow-hidden">
+            {project.tags.slice(0, 2).map((tag, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-surface-2 text-cerulean-300 border border-surface-border truncate max-w-20"
+              >
+                {tag}
+              </span>
+            ))}
+            {project.tags.length > 2 && (
+              <span className="text-[10px] font-mono text-muted-foreground">
+                +{project.tags.length - 2}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

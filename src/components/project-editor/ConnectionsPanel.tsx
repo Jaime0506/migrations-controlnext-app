@@ -1,67 +1,112 @@
-import { Database } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Database, CheckSquare, Square, Search } from "lucide-react";
 import { DatabaseConnection } from "./envParser";
 import ConnectionChip from "./ConnectionChip";
 
 interface ConnectionsPanelProps {
-    connections: DatabaseConnection[];
-    selectedConnections: Set<string>;
-    onToggleConnection: (connectionId: string) => void;
-    onSelectAll: () => void;
-    onSelectNone: () => void;
-    onRename?: (connectionId: string, displayName: string) => void;
+  connections: DatabaseConnection[];
+  selectedConnections: Set<string>;
+  onToggleConnection: (connectionId: string) => void;
+  onSelectAll: () => void;
+  onSelectNone: () => void;
+  onRename?: (connectionId: string, displayName: string) => void;
 }
 
 export default function ConnectionsPanel({
-    connections,
-    selectedConnections,
-    onToggleConnection,
-    onSelectAll,
-    onSelectNone,
-    onRename,
+  connections,
+  selectedConnections,
+  onToggleConnection,
+  onSelectAll,
+  onSelectNone,
+  onRename,
 }: ConnectionsPanelProps) {
-    if (connections.length === 0) {
-        return null;
-    }
+  const [filterQuery, setFilterQuery] = useState("");
 
-    return (
-        <div className="p-3 border-b border-cerulean-500/10 bg-ink-black-950/40 backdrop-blur-md shrink-0">
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                    <Database className="size-3 text-cerulean-400" />
-                    <span className="text-xs font-black text-cerulean-100 uppercase tracking-[0.2em]">
-                        Conexiones: {selectedConnections.size} de{" "}
-                        {connections.length} seleccionadas
-                    </span>
-                </div>
-                <div className="flex items-center gap-1">
-                    <button
-                        type="button"
-                        onClick={onSelectAll}
-                        className="text-xs font-black text-cerulean-300 hover:text-white uppercase tracking-widest px-2 py-1 transition-colors cursor-pointer"
-                    >
-                        Todas
-                    </button>
-                    <span className="text-cerulean-900/50">|</span>
-                    <button
-                        type="button"
-                        onClick={onSelectNone}
-                        className="text-xs font-black text-cerulean-300 hover:text-white uppercase tracking-widest px-2 py-1 transition-colors cursor-pointer"
-                    >
-                        Ninguna
-                    </button>
-                </div>
-            </div>
-            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-                {connections.map((conn) => (
-                    <ConnectionChip
-                        key={conn.id}
-                        connection={conn}
-                        isSelected={selectedConnections.has(conn.id)}
-                        onSelect={() => onToggleConnection(conn.id)}
-                        onRename={onRename}
-                    />
-                ))}
-            </div>
-        </div>
+  const filteredConnections = useMemo(() => {
+    if (!filterQuery.trim()) return connections;
+    const query = filterQuery.toLowerCase();
+    return connections.filter(
+      (c) =>
+        (c.displayName && c.displayName.toLowerCase().includes(query)) ||
+        (c.db && c.db.toLowerCase().includes(query)) ||
+        c.id.toLowerCase().includes(query) ||
+        (c.host && c.host.toLowerCase().includes(query))
     );
+  }, [connections, filterQuery]);
+
+  if (connections.length === 0) {
+    return null;
+  }
+
+  const allSelected = connections.length > 0 && selectedConnections.size === connections.length;
+
+  return (
+    <div className="p-3 border-b border-surface-border bg-surface-1/60 backdrop-blur-md shrink-0 space-y-2.5">
+      {/* Barra de estado y acciones masivas */}
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2">
+          <Database className="size-3.5 text-cerulean-400" />
+          <span className="font-semibold text-foreground tracking-tight">
+            Tenants Objetivo
+          </span>
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded font-mono text-[10px] bg-surface-2 text-cerulean-300 border border-surface-border">
+            {selectedConnections.size} / {connections.length} seleccionados
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {connections.length > 6 && (
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+              <input
+                type="text"
+                value={filterQuery}
+                onChange={(e) => setFilterQuery(e.target.value)}
+                placeholder="Buscar tenant..."
+                className="w-32 pl-6 pr-2 py-0.5 text-[11px] rounded bg-surface-base border border-surface-border focus:border-cerulean-500/50 focus:outline-none text-foreground placeholder:text-muted-foreground font-mono"
+              />
+            </div>
+          )}
+
+          <div className="flex items-center gap-1 border-l border-surface-border/80 pl-2">
+            <button
+              type="button"
+              onClick={allSelected ? onSelectNone : onSelectAll}
+              className="text-[11px] font-medium text-cerulean-300 hover:text-cerulean-200 transition-colors px-1.5 py-0.5 rounded hover:bg-surface-2 cursor-pointer flex items-center gap-1"
+            >
+              {allSelected ? (
+                <>
+                  <Square className="size-3" />
+                  Desmarcar todos
+                </>
+              ) : (
+                <>
+                  <CheckSquare className="size-3" />
+                  Seleccionar todos
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Lista de chips en cuadrícula fluida */}
+      <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+        {filteredConnections.map((conn) => (
+          <ConnectionChip
+            key={conn.id}
+            connection={conn}
+            isSelected={selectedConnections.has(conn.id)}
+            onSelect={() => onToggleConnection(conn.id)}
+            onRename={onRename}
+          />
+        ))}
+        {filteredConnections.length === 0 && (
+          <p className="text-xs text-muted-foreground py-1">
+            Ningún tenant coincide con "{filterQuery}"
+          </p>
+        )}
+      </div>
+    </div>
+  );
 }

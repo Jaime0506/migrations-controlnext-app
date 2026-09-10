@@ -13,10 +13,10 @@ interface ExecutionResult {
  * Limpia todas las comillas (simples y dobles, normales y Unicode) de un string
  * Maneja casos con comillas anidadas o múltiples capas
  */
-const cleanQuotes = (value: string | undefined): string | undefined => {
-    if (!value) return value;
+const cleanQuotes = (value: any): string | undefined => {
+    if (value === undefined || value === null) return undefined;
 
-    let cleaned = value.trim();
+    let cleaned = String(value).trim();
     let iterations = 0;
     const maxIterations = 10; // Límite de seguridad
 
@@ -156,14 +156,36 @@ export const useProjectConnections = () => {
             setIsExecutingSql(true);
             setExecutionResults([]); // Inicializar vacío para empezar a pintar progresivamente
 
-            // Escuchar el progreso individual de cada conexión
-            const unlisten = await listen<ExecutionResult>(
+            // Buffer local para acumular resultados y evitar re-renders excesivos
+            let buffer: ExecutionResult[] = [];
+            let rafId: number | null = null;
+
+            const flushBuffer = () => {
+                if (buffer.length > 0) {
+                    const toAppend = [...buffer];
+                    buffer = [];
+                    setExecutionResults((prev) => {
+                        const existing = prev || [];
+                        return [...existing, ...toAppend];
+                    });
+                }
+                rafId = null;
+            };
+
+            // Escuchar el progreso (acepta lotes o resultados individuales)
+            const unlisten = await listen<ExecutionResult[] | ExecutionResult>(
                 "sql-execution-progress",
                 (event) => {
-                    setExecutionResults((prev) => {
-                        const currentResults = prev || [];
-                        return [...currentResults, event.payload];
-                    });
+                    const newItems = Array.isArray(event.payload)
+                        ? event.payload
+                        : [event.payload];
+
+                    buffer.push(...newItems);
+
+                    // Programar renderizado suave en el siguiente frame
+                    if (rafId === null) {
+                        rafId = requestAnimationFrame(flushBuffer);
+                    }
                 }
             );
 
@@ -172,23 +194,19 @@ export const useProjectConnections = () => {
                 connections: fixedConnections,
             });
 
-            // Dejar de escuchar el progreso una vez que ha finalizado el invoke global
+            // Dejar de escuchar el progreso y cancelar cualquier frame pendiente
             unlisten();
+            if (rafId !== null) {
+                cancelAnimationFrame(rafId);
+            }
 
-            // Guardar resultados finales por seguridad (garantiza tener todos)
+            // Guardar resultados finales consolidados
             setExecutionResults(results);
-
-            results.forEach((result) => {
-                const status = result.success ? "✅" : "❌";
-                console.log(
-                    `${status} [${result.connection_id}]: ${result.message}`
-                );
-            });
 
             const successful = results.filter((r) => r.success).length;
             const failed = results.length - successful;
             console.log(
-                `\nResumen: ${successful} exitosas, ${failed} fallidas de ${results.length} totales`
+                `Ejecución finalizada: ${successful} exitosas, ${failed} fallidas de ${results.length} totales`
             );
         } catch (error) {
             console.error("Error ejecutando SQL:", error);
