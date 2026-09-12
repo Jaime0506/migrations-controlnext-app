@@ -3,6 +3,7 @@ import { X, Plus, FolderPlus, Tag as TagIcon } from "lucide-react";
 import { ProjectData, useProject } from "@/hooks/useProject";
 import { useProjectService } from "@/hooks/useProjectService";
 import ErrorBanner from "@/components/ui-custom/ErrorBanner";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 interface ProjectCreateModalProps {
@@ -176,14 +177,16 @@ export default function ProjectCreateModal({
                 placeholder="Ej: producción, staging, eu-west..."
                 className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-surface-base border border-surface-border focus:border-cerulean-500 focus:outline-none text-foreground placeholder:text-muted-foreground/60"
               />
-              <button
+              <Button
                 type="button"
                 onClick={handleAddTag}
                 disabled={!form.tagInput.trim()}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-2 hover:bg-surface-3 text-foreground border border-surface-border transition-colors disabled:opacity-40 cursor-pointer"
+                variant="surface"
+                size="auto"
+                className="px-3 py-1.5 text-xs shadow-none"
               >
                 Añadir
-              </button>
+              </Button>
             </div>
 
             {form.tags.length > 0 && (
@@ -217,10 +220,12 @@ export default function ProjectCreateModal({
             >
               Cancelar
             </button>
-            <button
+            <Button
               type="submit"
               disabled={isLoading || !form.name.trim()}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold bg-cerulean-500 hover:bg-cerulean-400 text-surface-base transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-[0_0_15px_rgba(8,191,247,0.25)]"
+              variant="cta"
+              size="auto"
+              className="px-4 py-1.5 text-xs"
             >
               {isLoading ? (
                 <div className="size-3.5 rounded-full border-2 border-surface-base border-t-transparent animate-spin" />
@@ -228,7 +233,7 @@ export default function ProjectCreateModal({
                 <Plus className="size-3.5" />
               )}
               <span>{isLoading ? "Creando..." : "Crear Proyecto"}</span>
-            </button>
+            </Button>
           </div>
         </form>
       </div>

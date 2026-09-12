@@ -5,6 +5,7 @@ import { Extension } from "@codemirror/state";
 import { sql, PostgreSQL } from "@codemirror/lang-sql";
 import { syntaxHighlighting } from "@codemirror/language";
 import { Play } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { DatabaseConnection } from "./envParser";
 import { getSqlHighlightStyle, getSqlTheme } from "./sqlEditorTheme";
 import ConnectionsPanel from "./ConnectionsPanel";
@@ -141,11 +142,13 @@ export default function SqlEditor({
           </span>
         </div>
 
-        <button
+        <Button
           type="button"
           onClick={handleExecute}
           disabled={isExecutingSql || selectedConnections.size === 0}
-          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-cerulean-500 hover:bg-cerulean-400 text-surface-base transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-[0_0_15px_rgba(8,191,247,0.25)] hover:shadow-[0_0_20px_rgba(8,191,247,0.4)]"
+          variant="cta"
+          size="auto"
+          className="px-3.5 py-1.5 text-xs"
         >
           {isExecutingSql ? (
             <div className="size-3.5 rounded-full border-2 border-surface-base border-t-transparent animate-spin" />
@@ -157,7 +160,7 @@ export default function SqlEditor({
               ? "Ejecutando..."
               : `Ejecutar (${selectedConnections.size})`}
           </span>
-        </button>
+        </Button>
       </div>
 
       {/* Editor CodeMirror */}
