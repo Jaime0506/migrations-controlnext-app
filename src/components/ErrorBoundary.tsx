@@ -1,5 +1,6 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import { AlertOctagon, RotateCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   children: ReactNode;
@@ -60,17 +61,19 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             <div className="flex justify-end pt-3 border-t border-surface-border">
-              <button
+              <Button
                 type="button"
                 onClick={() => {
                   this.setState({ hasError: false, error: null, errorInfo: null });
                   window.location.reload();
                 }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-cerulean-500 text-surface-base hover:bg-cerulean-400 cursor-pointer"
+                variant="cta"
+                size="auto"
+                className="px-4 py-2 text-xs"
               >
                 <RotateCcw className="size-3.5" />
                 Reiniciar Interfaz
-              </button>
+              </Button>
             </div>
           </div>
         </div>

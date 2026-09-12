@@ -70,6 +70,7 @@
   --color-surface-1: #09171b;
   --color-surface-2: #0c2026;
   --color-surface-3: #122c34;
+  --color-surface-border: var(--border);
 
   /* Shadcn Semantic Overrides */
   --radius-sm: calc(var(--radius) - 4px);

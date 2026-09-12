@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Plus, Search, FolderKanban, Database } from "lucide-react";
 import { ProjectData } from "@/hooks/useProject";
 import { useProjectService } from "@/hooks/useProjectService";
+import { Button } from "@/components/ui/button";
 import ProjectCard from "./ProjectCard";
 import ProjectCreateModal from "./ProjectCreateModal";
 
@@ -76,14 +77,16 @@ export default function ProjectsView({ onProjectClick }: ProjectsViewProps) {
             />
           </div>
 
-          <button
+          <Button
             type="button"
             onClick={() => setIsCreateModalOpen(true)}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-cerulean-500 hover:bg-cerulean-400 text-surface-base transition-all duration-150 cursor-pointer shrink-0 shadow-[0_0_15px_rgba(8,191,247,0.25)]"
+            variant="cta"
+            size="auto"
+            className="px-3.5 py-1.5 text-xs shrink-0"
           >
             <Plus className="size-3.5" />
             <span>Nuevo Proyecto</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -133,14 +136,16 @@ export default function ProjectsView({ onProjectClick }: ProjectsViewProps) {
             <p className="text-xs text-muted-foreground max-w-sm mt-1 mb-4">
               Crea tu primer proyecto para vincular conexiones `.env` y ejecutar consultas SQL en múltiples tenants.
             </p>
-            <button
+            <Button
               type="button"
               onClick={() => setIsCreateModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-cerulean-500 hover:bg-cerulean-400 text-surface-base transition-all duration-150 cursor-pointer shadow-lg"
+              variant="cta"
+              size="auto"
+              className="px-4 py-2 text-xs shadow-lg"
             >
               <Plus className="size-4" />
               <span>Crear mi primer proyecto</span>
-            </button>
+            </Button>
           </div>
         )}
       </div>

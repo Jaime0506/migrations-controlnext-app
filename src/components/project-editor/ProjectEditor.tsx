@@ -8,6 +8,7 @@ import { useProjectConnections } from "@/hooks/useProjectConnections";
 import { useProjectService } from "@/hooks/useProjectService";
 import { toast } from "sonner";
 import { Save, Database, FileCode2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   DatabaseConnection,
   getUniqueConnections,
@@ -255,11 +256,13 @@ export default function ProjectEditor({ id, project }: ProjectEditorProps) {
 
         {/* Acciones principales */}
         <div className="flex items-center gap-2">
-          <button
+          <Button
             type="button"
             onClick={handleGlobalSave}
             disabled={isSaving || !id}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium bg-surface-2 hover:bg-surface-3 text-foreground border border-surface-border transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:border-cerulean-500/30"
+            variant="surface"
+            size="auto"
+            className="px-3.5 py-1.5 text-xs"
           >
             {isSaving ? (
               <div className="size-3.5 rounded-full border-2 border-cerulean-400 border-t-transparent animate-spin" />
@@ -270,7 +273,7 @@ export default function ProjectEditor({ id, project }: ProjectEditorProps) {
             <kbd className="hidden md:inline text-[10px] font-mono text-muted-foreground bg-surface-base px-1.5 py-0.5 rounded border border-surface-border">
               ⌘S
             </kbd>
-          </button>
+          </Button>
         </div>
       </div>
 
